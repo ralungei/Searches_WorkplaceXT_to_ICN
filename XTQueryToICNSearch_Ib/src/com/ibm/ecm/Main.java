@@ -11,6 +11,7 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +46,8 @@ public class Main {
 	private static Domain sourceDom;
 	private static ObjectStore sourceObjStore;
 
+	private static ArrayList<Connection> connections;
+
 	private static Logger logger;
 
 	private static Properties properties = null;
@@ -55,12 +58,14 @@ public class Main {
 	private static String JSON_PATH;
 	private static String XML_PATH;
 	private static String XT_QUERY_PATH;
+
 	private static String SERVER_VALUE;
 	private static String USER_VALUE;
 	private static String PWD_VALUE;
 	private static String OBJECT_STORE_VALUE;
 	private static String LOG_FILE_VALUE;
 	private static String LOG_LEVEL_VALUE;
+	private static String DEST_SERVERS_VALUE;
 
 	private static String USER_PREF_QUERIES_FILE = "ExtractUserPrefQueries.properties";
 
@@ -69,6 +74,8 @@ public class Main {
 
 	private static SearchManagement searchManagement;
 	private static Map<String, Map<String, String>> userSearchesMap;
+
+	private static Map<String, String> destinationServers;
 
 	private static boolean developerMode = true;
 
@@ -81,21 +88,25 @@ public class Main {
 		setLogging();
 
 		try {
-			performConnection(SERVER_VALUE, USER_VALUE, PWD_VALUE, OBJECT_STORE_VALUE);
+			stablishOriginConnection();
 
-			logger.info("Connected to " + SERVER_VALUE + " object store " + OBJECT_STORE_VALUE);
+			loadSearchManagement();
 
-			searchManagement = new SearchManagement(XT_USERS_PATH, logger);
-			userSearchesMap = searchManagement.getUserSearchesMap(sourceCon, sourceObjStore);
-
-			logger.debug("Loaded Search Management info");
+			readDestinationServersFile();
 
 			runMenu();
+
 		} catch (EngineRuntimeException e) {
 			logger.error(e);
 			logger.error("FN connection could not be stablished. Please, check your connection");
 		}
 
+	}
+
+	public static void loadSearchManagement() {
+		searchManagement = new SearchManagement(XT_USERS_PATH, logger);
+		userSearchesMap = searchManagement.getUserSearchesMap(sourceCon, sourceObjStore);
+		logger.debug("Loaded Search Management info");
 	}
 
 	public static void setLogging() {
@@ -159,10 +170,12 @@ public class Main {
 			LOG_FILE_VALUE = properties.getProperty("FNP8.LogPath");
 			LOG_LEVEL_VALUE = properties.getProperty("FNP8.LogLevel");
 
+			DEST_SERVERS_VALUE = properties.getProperty("DestinationServers");
+
 			if (AdminUser == null || AdminGroup == null || XT_USERS_PATH == null || XT_QUERY_PATH == null
 					|| XML_PATH == null || JSON_PATH == null || SERVER_VALUE == null || USER_VALUE == null
 					|| PWD_VALUE == null || OBJECT_STORE_VALUE == null || LOG_FILE_VALUE == null
-					|| LOG_LEVEL_VALUE == null) {
+					|| LOG_LEVEL_VALUE == null || DEST_SERVERS_VALUE == null) {
 
 				logger.error("Missing properties in " + USER_PREF_QUERIES_FILE);
 				System.exit(8);
@@ -173,6 +186,32 @@ public class Main {
 		} catch (IOException e) {
 			logger.error(e.getMessage(), e);
 		}
+	}
+
+	public static void readDestinationServersFile() {
+		destinationServers = new HashMap<>();
+
+		String[] osList;
+		String serverURL = "";
+
+		try {
+			Scanner scanner = new Scanner(new File(DEST_SERVERS_VALUE));
+			while (scanner.hasNextLine()) {
+				osList = scanner.nextLine().split("-");
+				serverURL = scanner.nextLine();
+				for (String os : osList)
+					destinationServers.put(os, serverURL);
+			}
+			scanner.close();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+
+		logger.debug("Loaded Destination Servers info");
+
+//		destinationServers.entrySet().forEach(entry -> {
+//			System.out.println(entry.getKey() + " " + entry.getValue());
+//		});
 	}
 
 	public static void closeSearchManagement() {
@@ -238,7 +277,7 @@ public class Main {
 
 	public static void printMenu() {
 		printSeparator();
-		System.out.println(" Workplace XT Queries to ICN Converter ");
+		System.out.println(" Searches Converter - Workplace XT to ICN ");
 		printSeparator();
 		System.out.println("   1 - List user's shortname and SID with XT queries");
 		System.out.println("   2 - Convert XT queries to ICN for a specific shortname");
@@ -248,16 +287,25 @@ public class Main {
 		System.out.println("Please, select an option [1-4]:");
 	}
 
-	public static void performConnection(String server, String user, String pwd, String objectStore)
-			throws EngineRuntimeException {
-		sourceCon = Factory.Connection.getConnection(server);
+	public static void stablishOriginConnection() throws EngineRuntimeException {
+		sourceCon = Factory.Connection.getConnection(SERVER_VALUE);
 		UserContext uc = UserContext.get();
-		uc.pushSubject(UserContext.createSubject(sourceCon, user, pwd, "FileNetP8WSI"));
+		uc.pushSubject(UserContext.createSubject(sourceCon, USER_VALUE, PWD_VALUE, "FileNetP8WSI"));
 		sourceDom = Factory.Domain.fetchInstance(sourceCon, null, null);
-		sourceObjStore = Factory.ObjectStore.getInstance(sourceDom, objectStore);
+		sourceObjStore = Factory.ObjectStore.getInstance(sourceDom, OBJECT_STORE_VALUE);
+		logger.info("Connected to " + SERVER_VALUE + " object store " + OBJECT_STORE_VALUE);
 	}
 
-	public static void closeConnection() {
+	public static void stablishDestConnections() throws EngineRuntimeException {
+		sourceCon = Factory.Connection.getConnection(SERVER_VALUE);
+		UserContext uc = UserContext.get();
+		uc.pushSubject(UserContext.createSubject(sourceCon, USER_VALUE, PWD_VALUE, "FileNetP8WSI"));
+		sourceDom = Factory.Domain.fetchInstance(sourceCon, null, null);
+		sourceObjStore = Factory.ObjectStore.getInstance(sourceDom, OBJECT_STORE_VALUE);
+		logger.info("Connected to " + SERVER_VALUE + " object store " + OBJECT_STORE_VALUE);
+	}
+
+	public static void closeOriginConnection() {
 		UserContext.get().popSubject();
 	}
 
@@ -370,6 +418,33 @@ public class Main {
 
 	}
 
+	public static void convertXT(String userShortName) {
+		String mySQLString, value;
+
+		try {
+
+			if (userShortName != null) {
+				value = "%" + getSIDbyUserName(userShortName);
+				logger.debug("SID for XTUser: " + value);
+
+			} else {
+				value = "Us";
+			}
+
+			mySQLString = "SELECT Id,DocumentTitle FROM PreferencesDocument where isCurrentVersion=True and DocumentTitle like '"
+					+ value + "%'";
+			logger.debug(mySQLString);
+
+			logger.debug("convertXTforUser ini");
+			performXTConversion(mySQLString, userShortName);
+			logger.debug("convertXTforUser end");
+		} catch (EngineRuntimeException e) {
+			logger.error("User could not be found");
+			logger.error(e.getMessage());
+		}
+
+	}
+
 	public static void performXTConversion(String mySQLString, String shortname) {
 
 		String objstore = "";
@@ -471,22 +546,24 @@ public class Main {
 											fjson.delete();
 
 										try {
-											FilenetManagement qicn = new FilenetManagement(sourceCon, objstore, true, "10000",
-													logger);
+											XTManagement xtManagement = new XTManagement(sourceCon, sourceDom,
+													sourceObjStore, true, "10000", logger);
 
 											logger.debug("\t\tCreating Stored Search Document for user: " + shortname
 													+ " Search Name:" + avdSearchName);
-											qicn.readXTQuery(XT_QUERY_PATH);
-											qicn.fillPropertiesMap();
-											qicn.generateXML(XML_PATH);
-											qicn.generateJSON(JSON_PATH);
-											StoredSearchDocument sicn = new StoredSearchDocument(sourceCon, avdSearchName,
-													objstore, shortname, XML_PATH, JSON_PATH, AdminUser, AdminGroup,
-													logger);
-											sicn.createStoredSearch();
+											xtManagement.readXTQuery(XT_QUERY_PATH);
+											xtManagement.fillPropertiesMap();
+											xtManagement.generateXML(XML_PATH);
+											xtManagement.generateJSON(JSON_PATH);
+
+											ICNManagement icnManagement = new ICNManagement(sourceCon, sourceObjStore,
+													objstore, avdSearchName, shortname, XML_PATH, JSON_PATH, AdminUser,
+													AdminGroup, logger);
+											icnManagement.createStoredSearch();
 											userSearchesMap.get(getSIDbyUserName(shortname)).put(avdSearchName, "done");
 											logger.info("\t\t✓ Created Stored Search Document for user: " + shortname
-													+ " Search Name: " + avdSearchName + " ID: " + sicn.getId());
+													+ " Search Name: " + avdSearchName + " ID: "
+													+ icnManagement.getId());
 										} catch (EngineRuntimeException e) {
 											userSearchesMap.get(getSIDbyUserName(shortname)).put(avdSearchName,
 													"failed");
@@ -522,33 +599,6 @@ public class Main {
 				logger.error(e.getMessage(), e);
 			}
 		}
-	}
-
-	public static void convertXT(String userShortName) {
-		String mySQLString, value;
-
-		try {
-
-			if (userShortName != null) {
-				value = "%" + getSIDbyUserName(userShortName);
-				logger.debug("SID for XTUser: " + value);
-
-			} else {
-				value = "Us";
-			}
-
-			mySQLString = "SELECT Id,DocumentTitle FROM PreferencesDocument where isCurrentVersion=True and DocumentTitle like '"
-					+ value + "%'";
-			logger.debug(mySQLString);
-
-			logger.debug("convertXTforUser ini");
-			performXTConversion(mySQLString, userShortName);
-			logger.debug("convertXTforUser end");
-		} catch (EngineRuntimeException e) {
-			logger.error("User could not be found");
-			logger.error(e.getMessage());
-		}
-
 	}
 
 }
