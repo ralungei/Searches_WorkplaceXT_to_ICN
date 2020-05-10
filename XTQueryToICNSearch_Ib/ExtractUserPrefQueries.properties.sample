@@ -1,0 +1,16 @@
+# 
+# FileNet connection properties
+#
+FNP8.Server=http://1.1.1.1.1:PORT/wsi/FNCEWS40MTOM
+FNP8.User=user
+FNP8.Password=password
+FNP8.ObjectStore=P8OS1
+FNP8.XTUsersPath=/xtListUsers.txt
+FNP8.StoredSearchUser=p8admin
+FNP8.StoredSearchGroup=p8os1admins
+FNP8.XTQueryPath=xtQuery.xml
+FNP8.XMLPath=file0
+FNP8.JSONPath=file1.json
+FNP8.LogPath=logs/ExtracUserPrefQueries.log
+FNP8.LogLevel=INFO
+DestinationServers=DestinationServers.dat

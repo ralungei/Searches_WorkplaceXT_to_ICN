@@ -316,7 +316,7 @@ public class XTManagement {
 		attr.setValue("editable");
 		folderElement.setAttributeNode(attr);
 
-		com.filenet.api.core.ObjectStore os = Factory.ObjectStore.fetchInstance(dom, this.objectStoreName, null);
+//		ObjectStore os = Factory.ObjectStore.fetchInstance(dom, this.objectStoreName, null);
 		String osSymbolicName = Factory.ObjectStore.fetchInstance(dom, this.objectStoreName, null).get_Name();
 
 		Element osElement = ((org.w3c.dom.Document) w3Doc).createElement("objectstore");

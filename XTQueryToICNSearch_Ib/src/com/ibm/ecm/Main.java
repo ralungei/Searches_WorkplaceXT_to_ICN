@@ -240,6 +240,7 @@ public class Main {
 			break;
 		}
 		case 4:
+			System.out.println("Goodbye!");
 			System.exit(1);
 			break;
 		default:
@@ -564,7 +565,7 @@ public class Main {
 											logger.info("\t\t✓ Created Stored Search Document for user: " + shortname
 													+ " Search Name: " + avdSearchName + " ID: "
 													+ icnManagement.getId());
-										} catch (EngineRuntimeException e) {
+										} catch (Exception e) {
 											userSearchesMap.get(getSIDbyUserName(shortname)).put(avdSearchName,
 													"failed");
 											logger.debug("\t\t✗ Stored Search Document for user: " + shortname
