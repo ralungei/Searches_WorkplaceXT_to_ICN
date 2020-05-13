@@ -92,7 +92,7 @@ public class Main {
 
 			loadSearchManagement();
 
-			readDestinationServersFile();
+//			readDestinationServersFile();
 
 			runMenu();
 
@@ -170,12 +170,10 @@ public class Main {
 			LOG_FILE_VALUE = properties.getProperty("FNP8.LogPath");
 			LOG_LEVEL_VALUE = properties.getProperty("FNP8.LogLevel");
 
-			DEST_SERVERS_VALUE = properties.getProperty("DestinationServers");
-
 			if (AdminUser == null || AdminGroup == null || XT_USERS_PATH == null || XT_QUERY_PATH == null
 					|| XML_PATH == null || JSON_PATH == null || SERVER_VALUE == null || USER_VALUE == null
 					|| PWD_VALUE == null || OBJECT_STORE_VALUE == null || LOG_FILE_VALUE == null
-					|| LOG_LEVEL_VALUE == null || DEST_SERVERS_VALUE == null) {
+					|| LOG_LEVEL_VALUE == null) {
 
 				logger.error("Missing properties in " + USER_PREF_QUERIES_FILE);
 				System.exit(8);
@@ -448,7 +446,7 @@ public class Main {
 
 	public static void performXTConversion(String mySQLString, String shortname) {
 
-		String objstore = "";
+		String objStoreName = "";
 
 		String avdSearchName = "";
 		BufferedWriter writer = null;
@@ -518,7 +516,7 @@ public class Main {
 											sline.indexOf("</setting>"));
 								}
 								if (sline.startsWith("<setting key=\"objectStoreName\">")) {
-									objstore = sline.substring("<setting key=\"objectStoreName\">".length(),
+									objStoreName = sline.substring("<setting key=\"objectStoreName\">".length(),
 											sline.indexOf("</setting>"));
 								}
 							}
@@ -548,7 +546,7 @@ public class Main {
 
 										try {
 											XTManagement xtManagement = new XTManagement(sourceCon, sourceDom,
-													sourceObjStore, true, "10000", logger);
+													objStoreName, true, "10000", logger);
 
 											logger.debug("\t\tCreating Stored Search Document for user: " + shortname
 													+ " Search Name:" + avdSearchName);
@@ -557,9 +555,9 @@ public class Main {
 											xtManagement.generateXML(XML_PATH);
 											xtManagement.generateJSON(JSON_PATH);
 
-											ICNManagement icnManagement = new ICNManagement(sourceCon, sourceObjStore,
-													objstore, avdSearchName, shortname, XML_PATH, JSON_PATH, AdminUser,
-													AdminGroup, logger);
+											ICNManagement icnManagement = new ICNManagement(sourceCon, sourceDom,
+													objStoreName, avdSearchName, shortname, XML_PATH, JSON_PATH,
+													AdminUser, AdminGroup, logger);
 											icnManagement.createStoredSearch();
 											userSearchesMap.get(getSIDbyUserName(shortname)).put(avdSearchName, "done");
 											logger.info("\t\t✓ Created Stored Search Document for user: " + shortname

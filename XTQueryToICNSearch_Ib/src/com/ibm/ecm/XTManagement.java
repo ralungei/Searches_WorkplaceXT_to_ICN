@@ -104,11 +104,11 @@ public class XTManagement {
 	List<String> defaultSelectProperties;
 	List<String> defaultSelectFolderProperties;
 
-	public XTManagement(Connection con, Domain dom, ObjectStore os, Boolean includesubclasses, String timeout,
+	public XTManagement(Connection con, Domain dom, String osName, Boolean includesubclasses, String timeout,
 			Logger log) {
 		this.con = con;
 		this.dom = dom;
-		this.os = os;
+		this.os = Factory.ObjectStore.getInstance(dom, osName);
 
 		this.includesubclasses = includesubclasses;
 		this.timeout = timeout;

@@ -15,6 +15,7 @@ import com.filenet.api.constants.RefreshMode;
 import com.filenet.api.core.Connection;
 import com.filenet.api.core.ContentTransfer;
 import com.filenet.api.core.Document;
+import com.filenet.api.core.Domain;
 import com.filenet.api.core.Factory;
 import com.filenet.api.core.ObjectStore;
 import com.filenet.api.security.AccessPermission;
@@ -23,7 +24,8 @@ import com.filenet.api.security.User;
 
 public class ICNManagement {
 
-	private Connection conn;
+	private Connection con;
+	private Domain dom;
 	private ObjectStore objStore;
 
 	private String objStoreName;
@@ -36,11 +38,12 @@ public class ICNManagement {
 	private String Id = null;
 	private Logger logger = null;
 
-	public ICNManagement(Connection con, ObjectStore objStore, String objStoreName, String advancedSearchName,
-			String userOwner, String XMLfile, String JSONfile, String AdminUser, String AdminGroup, Logger logger) {
+	public ICNManagement(Connection con, Domain dom, String objStoreName, String advancedSearchName, String userOwner,
+			String XMLfile, String JSONfile, String AdminUser, String AdminGroup, Logger logger) {
 
-		this.conn = con;
-		this.objStore = objStore;
+		this.con = con;
+		this.dom = dom;
+		this.objStore = Factory.ObjectStore.getInstance(dom, objStoreName);
 
 		this.advancedSearchName = advancedSearchName;
 		this.objStoreName = objStoreName;
@@ -78,9 +81,9 @@ public class ICNManagement {
 		Group fadmingroup = null;
 
 		try {
-			fuser = Factory.User.fetchInstance(this.conn, this.userOwner, null);
-			fadminuser = Factory.User.fetchInstance(this.conn, this.AdminUser, null);
-			fadmingroup = Factory.Group.fetchInstance(this.conn, this.AdminGroup, null);
+			fuser = Factory.User.fetchInstance(this.con, this.userOwner, null);
+			fadminuser = Factory.User.fetchInstance(this.con, this.AdminUser, null);
+			fadmingroup = Factory.Group.fetchInstance(this.con, this.AdminGroup, null);
 
 			AccessPermission ap1 = Factory.AccessPermission.createInstance();
 			ap1.set_GranteeName(fuser.get_DistinguishedName());
