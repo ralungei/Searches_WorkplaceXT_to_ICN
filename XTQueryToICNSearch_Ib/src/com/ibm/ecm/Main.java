@@ -473,120 +473,129 @@ public class Main {
 				logger.info("Processing XT Advanced Queries for user: " + shortname + " Document Id: "
 						+ userprefId.toString() + " Document Title: " + docTitle);
 
-				Document userprefdoc = Factory.Document.fetchInstance(sourceObjStore, userprefId, null);
+				if (userSearchesMap.containsKey(getSIDbyUserName(shortname))) {
 
-				ContentElementList docContentList = userprefdoc.get_ContentElements();
-				Iterator iterc = docContentList.iterator();
-				while (iterc.hasNext()) {
-					ContentTransfer ct = (ContentTransfer) iterc.next();
-					InputStream stream = ct.accessContentStream();
-					int docLen = ct.get_ContentSize().intValue();
-					byte[] buf = new byte[docLen];
-					String readStr = "";
-					try {
-						stream.read(buf);
-						readStr = new String(buf);
-						stream.close();
-					} catch (IOException e) {
-						logger.error(e.getMessage(), e);
-					}
+					Document userprefdoc = Factory.Document.fetchInstance(sourceObjStore, userprefId, null);
 
-					Reader inputString = new StringReader(readStr);
-					BufferedReader bufferedReader = new BufferedReader(inputString);
-					String sline;
+					ContentElementList docContentList = userprefdoc.get_ContentElements();
+					Iterator iterc = docContentList.iterator();
+					while (iterc.hasNext()) {
+						ContentTransfer ct = (ContentTransfer) iterc.next();
+						InputStream stream = ct.accessContentStream();
+						int docLen = ct.get_ContentSize().intValue();
+						byte[] buf = new byte[docLen];
+						String readStr = "";
+						try {
+							stream.read(buf);
+							readStr = new String(buf);
+							stream.close();
+						} catch (IOException e) {
+							logger.error(e.getMessage(), e);
+						}
 
-					boolean bwrite = false;
-					boolean noSearches = true;
-					boolean alreadyDoneSearches = true;
+						Reader inputString = new StringReader(readStr);
+						BufferedReader bufferedReader = new BufferedReader(inputString);
+						String sline;
 
-					try {
-						while ((sline = bufferedReader.readLine()) != null) {
-							if (sline.startsWith("<object key=\"xtQuery\">")) {
-								noSearches = false;
-								avdSearchName = "";
-								bwrite = true;
-								writer = new BufferedWriter(new FileWriter(XT_QUERY_PATH));
-								ixtquery++;
-							}
-							if (bwrite) {
-								writer.write(sline);
-								writer.newLine();
-								if (sline.startsWith("<setting key=\"searchName\">")) {
-									avdSearchName = sline.substring("<setting key=\"searchName\">".length(),
-											sline.indexOf("</setting>"));
+						boolean bwrite = false;
+						boolean noSearches = true;
+						boolean alreadyDoneSearches = true;
+
+						try {
+							while ((sline = bufferedReader.readLine()) != null) {
+								if (sline.startsWith("<object key=\"xtQuery\">")) {
+									noSearches = false;
+									avdSearchName = "";
+									bwrite = true;
+									writer = new BufferedWriter(new FileWriter(XT_QUERY_PATH));
+									ixtquery++;
 								}
-								if (sline.startsWith("<setting key=\"objectStoreName\">")) {
-									objStoreName = sline.substring("<setting key=\"objectStoreName\">".length(),
-											sline.indexOf("</setting>"));
-								}
-							}
-							if (sline.contains("</object>")) {
 								if (bwrite) {
-									writer.flush();
-									writer.close();
-									bwrite = false;
-
-									if (avdSearchName.isEmpty()) {
-										avdSearchName = "Default Advanced Search";
+									writer.write(sline);
+									writer.newLine();
+									if (sline.startsWith("<setting key=\"searchName\">")) {
+										avdSearchName = sline.substring("<setting key=\"searchName\">".length(),
+												sline.indexOf("</setting>"));
 									}
+									if (sline.startsWith("<setting key=\"objectStoreName\">")) {
+										objStoreName = sline.substring("<setting key=\"objectStoreName\">".length(),
+												sline.indexOf("</setting>"));
+									}
+								}
+								if (sline.contains("</object>")) {
+									if (bwrite) {
+										writer.flush();
+										writer.close();
+										bwrite = false;
 
-									if (userSearchesMap.get(getSIDbyUserName(shortname)).get(avdSearchName)
-											.equals("done")) {
-										logger.debug("\t\t- Stored Search Document for user: " + shortname
-												+ " Search Name: " + avdSearchName + " has already been migrated");
-									} else {
-										alreadyDoneSearches = false;
+										if (avdSearchName.isEmpty()) {
+											avdSearchName = "Default Advanced Search";
+										}
 
-										File fxml = new File(XML_PATH);
-										if (fxml.exists())
-											fxml.delete();
-										File fjson = new File(JSON_PATH);
-										if (fjson.exists())
-											fjson.delete();
+										if (userSearchesMap.get(getSIDbyUserName(shortname)).get(avdSearchName)
+												.equals("done")) {
+											logger.debug("\t\t- Stored Search Document for user: " + shortname
+													+ " Search Name: " + avdSearchName + " has already been migrated");
+										} else {
+											alreadyDoneSearches = false;
 
-										try {
-											XTManagement xtManagement = new XTManagement(sourceCon, sourceDom,
-													objStoreName, true, "10000", logger);
+											File fxml = new File(XML_PATH);
+											if (fxml.exists())
+												fxml.delete();
+											File fjson = new File(JSON_PATH);
+											if (fjson.exists())
+												fjson.delete();
 
-											logger.debug("\t\tCreating Stored Search Document for user: " + shortname
-													+ " Search Name:" + avdSearchName);
-											xtManagement.readXTQuery(XT_QUERY_PATH);
-											xtManagement.fillPropertiesMap();
-											xtManagement.generateXML(XML_PATH);
-											xtManagement.generateJSON(JSON_PATH);
+											try {
+												XTManagement xtManagement = new XTManagement(sourceCon, sourceDom,
+														objStoreName, true, "10000", logger);
 
-											ICNManagement icnManagement = new ICNManagement(sourceCon, sourceDom,
-													objStoreName, avdSearchName, shortname, XML_PATH, JSON_PATH,
-													AdminUser, AdminGroup, logger);
-											icnManagement.createStoredSearch();
-											userSearchesMap.get(getSIDbyUserName(shortname)).put(avdSearchName, "done");
-											logger.info("\t\t✓ Created Stored Search Document for user: " + shortname
-													+ " Search Name: " + avdSearchName + " ID: "
-													+ icnManagement.getId());
-										} catch (Exception e) {
-											userSearchesMap.get(getSIDbyUserName(shortname)).put(avdSearchName,
-													"failed");
-											logger.debug("\t\t✗ Stored Search Document for user: " + shortname
-													+ " Search Name: " + avdSearchName + " could not be created");
-											logger.error(e.getMessage(), e);
+												logger.debug("\t\tCreating Stored Search Document for user: "
+														+ shortname + " Search Name:" + avdSearchName);
+												xtManagement.readXTQuery(XT_QUERY_PATH);
+												xtManagement.fillPropertiesMap();
+												xtManagement.generateXML(XML_PATH);
+												xtManagement.generateJSON(JSON_PATH);
+
+												ICNManagement icnManagement = new ICNManagement(sourceCon, sourceDom,
+														objStoreName, avdSearchName, shortname, XML_PATH, JSON_PATH,
+														AdminUser, AdminGroup, logger);
+												icnManagement.createStoredSearch();
+												userSearchesMap.get(getSIDbyUserName(shortname)).put(avdSearchName,
+														"done");
+												logger.info("\t\t✓ Created Stored Search Document for user: "
+														+ shortname + " Search Name: " + avdSearchName + " ID: "
+														+ icnManagement.getId());
+											} catch (Exception e) {
+												userSearchesMap.get(getSIDbyUserName(shortname)).put(avdSearchName,
+														"failed");
+
+												logger.debug("\t\t✗ Stored Search Document for user: " + shortname
+														+ " Search Name: " + avdSearchName + " could not be created");
+												logger.error(e.getMessage(), e);
+											}
 										}
 									}
 								}
 							}
+						} catch (IOException e) {
+							logger.error(e.getMessage(), e);
+						} catch (EngineRuntimeException e) {
+							logger.error(e.getMessage(), e);
 						}
-					} catch (IOException e) {
-						logger.error(e.getMessage(), e);
-					} catch (EngineRuntimeException e) {
-						logger.error(e.getMessage(), e);
+
+						if (noSearches) {
+							logger.info("\t\tNo searches for user " + shortname);
+
+						} else if (alreadyDoneSearches) {
+							logger.info("\t\tAll searches were already migrated for " + shortname);
+						}
 					}
 
-					if (noSearches) {
-						logger.info("\t\tNo searches for user " + shortname);
+				} else
+					logger.error("\t\tThe user " + shortname
+							+ " was not initially considered for search migration and won't be processed.");
 
-					} else if (alreadyDoneSearches) {
-						logger.info("\t\tAll searches were already migrated for " + shortname);
-					}
-				}
 				shortname = null;
 			}
 		} catch (Exception e) {

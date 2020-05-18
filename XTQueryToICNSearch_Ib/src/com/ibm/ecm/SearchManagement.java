@@ -161,7 +161,8 @@ public class SearchManagement {
 					}
 				}
 
-				userSearchesMap.put(sid, searchesMap);
+				if (!searchesMap.isEmpty())
+					userSearchesMap.put(sid, searchesMap);
 			}
 		} catch (IOException e) {
 			logger.error(e.getMessage(), e);
